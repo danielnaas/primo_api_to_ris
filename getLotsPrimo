@@ -1,0 +1,276 @@
+import requests
+import json
+import re
+
+## PROGRAM OVERVIEW
+## I want to take records from Primo Search API calls and convert them to RIS
+
+## This function will load the JSON file
+## Input:
+##  file_path: string of path to file
+## Output: 
+##  data: JSON object of Primo recordset
+def loadJson(file_path):
+    with open(file_path, 'r', encoding='utf-8') as file:
+        data = json.load(file)
+        return data
+
+## This function will take a record and return the RIS as a string with line breaks
+## Input: 
+##  data: a chunk of the overall JSON that's just one record
+def makeRis(data):
+    risText = ''
+    # From https://knowledge.exlibrisgroup.com/Primo/Product_Documentation/020Primo_VE/Primo_VE_(English)/120Other_Configurations/Mappings_for_Export_Actions_in_Primo_VE
+    # Writing down RIS mapping for later
+    # TY    Type of reference   addata:ristype
+    try:
+        risTy = data['pnx']['addata']['ristype'][0]
+        risText += 'TY  - ' + risTy + '\n'
+    except:
+        pass
+        # test data
+        #risTy = 'test TY'
+        #risText += 'TY  - ' + risTy + '\n'
+    # AU    Author  add=data:au or display:creator multiple:yes regex: (.*)\$\$Q.*;true
+    try:
+        risAu = data['pnx']['addata']['addau']
+        for au in risAu:
+            #print(au)
+            risText += 'AU  - ' + au + '\n'
+    except:
+        pass
+    # CY    Place published addata:cop
+    try:
+        risCy = data['pnx']['addata']['cop'][0]
+        risText += 'CY  - ' + risCy + '\n'
+    except:
+        pass
+        # test data
+        #risCy = 'test CY'
+        #risText += 'CY  - ' + risCy + '\n'
+
+    # DO    DOI addata:doi
+    try:
+        risDo = data['pnx']['addata']['doi'][0]
+        risText += 'DO  - ' + risDo + '\n'
+    except:
+        pass
+        # test data
+        #risDo = 'test DO'
+        #risText += 'DO  - ' + risDo + '\n'
+    # EP    End Page    addata:epage
+    try:
+        risEp = data['pnx']['addata']['epage'][0]
+        risText += 'EP  - ' + risEp + '\n'
+    except:
+        pass
+        # test data
+        #risEp = 'test EP'
+        #risText += 'EP  - ' + risEp + '\n'
+    # ET    Edition addata:edition
+    try:
+        risEt = data['pnx']['addata']['edition'][0]
+        risText += 'ET  - ' + risEt + '\n'
+    except:
+        pass
+        # test data
+        #risEt = 'test ET'
+        #risText += 'ET  - ' + risEt + '\n'
+
+    # ID    Reference ID    control:recordid
+    try:
+        risId = data['pnx']['control']['recordid'][0]
+        risText += 'ID  - ' + risId + '\n'
+    except:
+        pass
+        # test data
+        #risId = 'test ID'
+        #risText += 'ID  - ' + risId + '\n'
+    # IS    Issue Number    addata:issue
+    try:
+        risIs = data['pnx']['addata']['issue'][0]
+        risText += 'IS  - ' + risIs + '\n'
+    except:
+        pass
+        # test data
+        #risIs = 'test IS'
+        #risText += 'IS  - ' + risIs + '\n'
+    # JA    Periodical name addata:stitle
+    try:
+        risJa = data['pnx']['addata']['stitle'][0]
+        risText += 'JA  - ' + risJa + '\n'
+    except:
+        pass
+        # test data
+        #risJa = 'test JA'
+        #risText += 'JA  - ' + risJa + '\n'
+    # JF    Journal/Periodcal name  addata:jtitle
+    try:
+        risJf = data['pnx']['addata']['jtitle'][0]
+        risText += 'JF  - ' + risJf + '\n'
+    except:
+        pass
+        # test data
+        #risJf = 'test JF'
+        #risText += 'JF  - ' + risJf + '\n'
+    # KW    Keywords    display:subject multiple: true
+    try:
+        risKw = data['pnx']['display']['subject']
+        for kw in risKw:
+            risText += 'KW  - ' + kw + '\n'
+    except:
+        pass
+    # N1    Notes   addata:notes
+    try:
+        risN1 = data['pnx']['addata']['notes'][0]
+        risText += 'N1  - ' + risN1 + '\n'
+    except:
+        pass
+        # test data
+        #risN1 = 'test N1'
+        #risText += 'N1  - ' + risN1 + '\n'
+    # N2    Abstract    addata:abstract
+    try:
+        risN2 = data['pnx']['addata']['abstract']
+        for n2 in risN2:
+            risText += 'N2  - ' + n2 + '\n'
+    except:
+        pass
+        #test data
+        #risN2 = 'test N2'
+        #risText += 'N2  - ' + risN2 + '\n'
+    # PB    Publisher   addata:pub
+    try:
+        risPb = data['pnx']['addata']['pub'][0]
+        risText += 'PB  - ' + risPb + '\n'
+    except:
+        pass
+        # test data
+        #risPb = 'test PB'
+        #risText += 'PB  - ' + risPb + '\n'
+    # SN    ISBN/ISSN   addata:issn, addata:eissn, addata:isbn, addata: eisbn
+    # we need to check a few different things with this one
+    try:
+        risSn = data['pnx']['addata']['issn'][0]
+        risText += 'SN  - ' + risSn + '\n'
+    except:
+        pass
+        # test data
+        #risSn = 'test SN ISSN'
+        #risText += 'SN  - ' + risSn + '\n'
+
+    try:
+        risSn = data['pnx']['addata']['eissn'][0]
+        risText += 'SN  - ' + risSn + '\n'
+    except:
+        pass
+        # test data
+        #risSn = 'test SN EISSN'
+        #risText += 'SN  - ' + risSn + '\n'
+    try:
+        risSn = data['pnx']['addata']['isbn'][0]
+        risText += 'SN  - ' + risSn + '\n'
+    except:
+        pass
+        # test data
+        #risSn = 'test SN ISBN'
+        #risText += 'SN  - ' + risSn + '\n'
+    try:
+        risSn = data['pnx']['addata']['eisbn'][0]
+        risText += 'SN  - ' + risSn + '\n'
+    except:
+        pass
+        # test data
+        #risSn = 'test SN EISBN'
+        #risText += 'SN  - ' + risSn + '\n'
+    # SP    Start page  addata:spage
+    try:
+        risSp = data['pnx']['addata']['spage'][0]
+        risText += 'SP  - ' + risSp + '\n'
+    except:
+        pass
+        # test data
+        #risSp = 'test SP'
+        #risText += 'SP  - ' + risSp + '\n'
+    # T1    Primary Title   display:title
+    try:
+        risT1 = data['pnx']['display']['title'][0]
+        risText += 'T1  - ' + risT1 + '\n'
+    except:
+        pass
+        # test data
+        #risT1 = 'test T1'
+        #risText += 'T1  - ' + risT1 + '\n'
+    # T2    Secondary Title addata:addtitle
+    try:
+        risT2 = data['pnx']['addata']['addtitle'][0]
+        risText += 'T2  - ' + risT2 + '\n'
+    except:
+        pass
+        # test data
+        #risT2 = 'test T2'
+        #risText += 'T2  - ' + risT2 + '\n'
+    # T3    Tertiary Title  addtitle:seriestitle
+    try:
+        risT3 = data['pnx']['addata']['seriestitle'][0]
+        risText += 'T3  - ' + risT3 + '\n'
+    except:
+        pass
+        # test data
+        #risT3 = 'test T3'
+        #risText += 'T3  - ' + risT3 + '\n'
+    
+    # VL    Volume number   addata:volume
+    try:
+        risVl = data['pnx']['addata']['volume'][0]
+        risText += 'VL  - ' + risVl + '\n'
+    except:
+        pass
+        # test data
+        #risVl = 'test VL'
+        #risText += 'VL  - ' + risVl + '\n'
+    # Y1    Publication year    addata:date, display:creationdate   regex: \d[4];false
+    try:
+        risY1 = data['pnx']['display']['creationdate'][0]
+        match = re.search('\d{4}', risY1)
+        risText += 'Y1  - ' + match[0] + '\n'
+    except:
+        pass
+    risText += 'ER  -\n'
+    #print(risText)
+    return risText
+
+################
+## Here's where we get going with the body of the script    
+#path = 'primoTestData.json'
+#results = loadJson(path)
+#print(len(results['docs'][0]['pnx']['addata']['addau']))
+
+#pnxs = results['docs']
+
+#with open("RISoutput.txt", "w") as f:
+#    for pnx in pnxs:
+#        f.write(makeRis(pnx))
+
+
+### This is the bit that fetches all the records   
+def getRecords(start, end):
+    x = range(start, end, 50)
+    with open("RISoutput.txt", "a", encoding="utf-8") as f:
+        for n in x:
+            offset = str(n)
+            print('Getting batch with offset: ' + offset) 
+            r = requests.get('https://api-na.hosted.exlibrisgroup.com/primo/v1/search?vid=01SAA_UKY:UKY&tab=Everything&scope=MyInst_and_CI&q=any%2Ccontains%2Cmusic%20history&lang=en&offset=' + offset + '&limit=50&sort=rank&pcAvailability=true&getMore=0&conVoc=true&inst=01SAA_UKY&skipDelivery=true&disableSplitFacets=false&apikey=l8xx')
+            print('Request status: ' + str(r.status_code))
+            # write the results
+            results = json.loads(r.text)
+            pnxs = results['docs']
+            for pnx in pnxs:
+                f.write(makeRis(pnx))
+
+################# Here we go!
+getRecords(0,100)
+
+
+
+
